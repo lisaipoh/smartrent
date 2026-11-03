@@ -82,6 +82,33 @@ const disputeSchema = new Schema<DisputeDocument>(
       type: String,
       trim: true,
     },
+    activityHistory: {
+      type: [
+        new Schema(
+          {
+            type: {
+              type: String,
+              enum: ["status_changed", "resolution_notes_updated"],
+              required: true,
+            },
+            status: {
+              type: String,
+              enum: DISPUTE_STATUSES,
+            },
+            changedAt: {
+              type: Date,
+              required: true,
+            },
+            changedBy: {
+              type: String,
+              required: true,
+            },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AlertCircle, FileText, Scale } from "lucide-react";
+import { AlertCircle, Download, Scale } from "lucide-react";
 import Link from "next/link";
 
 import { DashboardCard, PageHeader } from "@/components/dashboard";
@@ -32,16 +32,30 @@ export default function ReportsPage() {
         />
       </div>
       <DashboardCard className="mt-4">
-        <div className="flex items-start gap-3 p-4 sm:p-5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-            <FileText className="h-5 w-5" aria-hidden="true" />
-          </span>
+        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
-            <h2 className="font-semibold text-slate-950">Report exports</h2>
+            <h2 className="font-semibold text-slate-950">Export records</h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Downloadable report generation is not currently available. All
-              source records remain accessible through their respective modules.
+              Download the currently accessible issue or dispute records as CSV.
             </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border bg-white px-4 text-sm font-medium text-foreground transition-colors hover:bg-slate-50"
+              download
+              href="/api/reports/export?type=issues"
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Export issues
+            </a>
+            <a
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border bg-white px-4 text-sm font-medium text-foreground transition-colors hover:bg-slate-50"
+              download
+              href="/api/reports/export?type=disputes"
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Export disputes
+            </a>
           </div>
         </div>
       </DashboardCard>

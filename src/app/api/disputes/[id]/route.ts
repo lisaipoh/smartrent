@@ -5,6 +5,7 @@ import { createDisputeNotification } from "@/lib/notifications";
 import {
   findAccessibleDispute,
   forbiddenResponse,
+  getDisputeTimeline,
   notFoundResponse,
   serializeDispute,
   unauthenticatedResponse,
@@ -23,7 +24,12 @@ export async function GET(_request: Request, context: DisputeRouteContext) {
   const dispute = await findAccessibleDispute(id, session.user);
   if (!dispute) return notFoundResponse();
 
-  return Response.json({ dispute: await serializeDispute(dispute) });
+  return Response.json({
+    dispute: {
+      ...(await serializeDispute(dispute)),
+      activity: await getDisputeTimeline(dispute),
+    },
+  });
 }
 
 export async function PUT(request: Request, context: DisputeRouteContext) {
@@ -43,12 +49,33 @@ export async function PUT(request: Request, context: DisputeRouteContext) {
     return validationErrorResponse(parsedBody.error.flatten().fieldErrors);
   }
 
-  const previousStatus = dispute.status;
+  const changedAt = new Date();
+  const statusChanged = dispute.status !== parsedBody.data.status;
+  const notesChanged =
+    (dispute.resolutionNotes ?? "") !== parsedBody.data.resolutionNotes;
+  dispute.activityHistory ??= [];
+
+  if (statusChanged) {
+    dispute.activityHistory.push({
+      type: "status_changed",
+      status: parsedBody.data.status,
+      changedAt,
+      changedBy: session.user.id,
+    });
+  }
+  if (notesChanged) {
+    dispute.activityHistory.push({
+      type: "resolution_notes_updated",
+      changedAt,
+      changedBy: session.user.id,
+    });
+  }
+
   dispute.status = parsedBody.data.status;
   dispute.resolutionNotes = parsedBody.data.resolutionNotes;
   await dispute.save();
 
-  if (previousStatus !== dispute.status) {
+  if (statusChanged) {
     await createDisputeNotification({
       userId: dispute.tenantId,
       disputeId: dispute._id.toString(),
@@ -58,7 +85,12 @@ export async function PUT(request: Request, context: DisputeRouteContext) {
     });
   }
 
-  return Response.json({ dispute: await serializeDispute(dispute) });
+  return Response.json({
+    dispute: {
+      ...(await serializeDispute(dispute)),
+      activity: await getDisputeTimeline(dispute),
+    },
+  });
 }
 
 export async function DELETE(_request: Request, context: DisputeRouteContext) {

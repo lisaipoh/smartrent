@@ -13,7 +13,10 @@ import Link from "next/link";
 
 import { EmptyState, PageHeader, StatCard } from "@/components/dashboard";
 import { Button, Card, CardContent, CardHeader } from "@/components/ui";
+import type { DisputeRecord } from "@/features/disputes/types";
+import type { IssueRecord } from "@/features/issues/types";
 import type { PropertyRecord } from "@/features/properties/types";
+import type { TenancyRecord } from "@/features/tenancies/types";
 
 import { DeletePropertyButton } from "./delete-property-button";
 import { InventoryManager } from "./inventory-manager";
@@ -28,6 +31,29 @@ export function PropertyDetails({ id }: PropertyDetailsProps) {
   const [property, setProperty] = useState<PropertyRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [relatedLoading, setRelatedLoading] = useState(true);
+  const [relatedError, setRelatedError] = useState<string | null>(null);
+  const [tenancies, setTenancies] = useState<
+    Array<
+      Pick<
+        TenancyRecord,
+        "id" | "tenantName" | "status" | "startDate" | "endDate"
+      >
+    >
+  >([]);
+  const [issues, setIssues] = useState<
+    Array<
+      Pick<IssueRecord, "id" | "title" | "priority" | "status" | "createdAt">
+    >
+  >([]);
+  const [disputes, setDisputes] = useState<
+    Array<
+      Pick<
+        DisputeRecord,
+        "id" | "title" | "disputeReference" | "status" | "createdAt"
+      >
+    >
+  >([]);
 
   useEffect(() => {
     let mounted = true;
@@ -36,10 +62,26 @@ export function PropertyDetails({ id }: PropertyDetailsProps) {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/properties/${id}`, {
-        cache: "no-store",
-      });
-      const result = await response.json().catch(() => null);
+      const [response, issuesResponse, disputesResponse, tenanciesResponse] =
+        await Promise.all([
+          fetch(`/api/properties/${id}`, { cache: "no-store" }),
+          fetch(`/api/issues?propertyId=${encodeURIComponent(id)}`, {
+            cache: "no-store",
+          }),
+          fetch(`/api/disputes?propertyId=${encodeURIComponent(id)}`, {
+            cache: "no-store",
+          }),
+          fetch(`/api/tenancies?propertyId=${encodeURIComponent(id)}`, {
+            cache: "no-store",
+          }),
+        ]);
+      const [result, issuesResult, disputesResult, tenanciesResult] =
+        await Promise.all([
+          response.json().catch(() => null),
+          issuesResponse.json().catch(() => null),
+          disputesResponse.json().catch(() => null),
+          tenanciesResponse.json().catch(() => null),
+        ]);
 
       if (!mounted) {
         return;
@@ -53,6 +95,15 @@ export function PropertyDetails({ id }: PropertyDetailsProps) {
 
       setProperty(result.property);
       setIsLoading(false);
+      setIssues(issuesResponse.ok ? (issuesResult?.issues ?? []) : []);
+      setDisputes(disputesResponse.ok ? (disputesResult?.disputes ?? []) : []);
+      setTenancies(
+        tenanciesResponse.ok ? (tenanciesResult?.tenancies ?? []) : [],
+      );
+      if (!issuesResponse.ok || !disputesResponse.ok || !tenanciesResponse.ok) {
+        setRelatedError("Some related records could not be loaded.");
+      }
+      setRelatedLoading(false);
     }
 
     void loadProperty();
@@ -121,14 +172,14 @@ export function PropertyDetails({ id }: PropertyDetailsProps) {
           value={property.bedroomCount.toString()}
         />
         <StatCard
-          href="/tenancies"
+          href="#related-tenancies"
           icon={User}
           label="Tenancies"
           linkLabel="View records"
           value="Manage"
         />
         <StatCard
-          href="/issues"
+          href="#related-issues"
           icon={AlertCircle}
           label="Issues"
           linkLabel="View records"
@@ -170,52 +221,116 @@ export function PropertyDetails({ id }: PropertyDetailsProps) {
               Related tenancies
             </h2>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm leading-6 text-slate-600">
-              Tenant contacts, deposits, lease dates, and rent tracking are
-              managed from the Tenancies workspace.
-            </p>
-            <Link href="/tenancies">
-              <Button className="mt-4" variant="outline">
-                View tenancies
-              </Button>
-            </Link>
+          <CardContent id="related-tenancies" className="grid gap-3">
+            {relatedLoading ? (
+              <p className="text-sm text-slate-600">Loading tenancies...</p>
+            ) : tenancies.length ? (
+              tenancies.map((tenancy) => (
+                <RelatedRecordLink
+                  detail={`${tenancy.status} tenancy · started ${formatDate(tenancy.startDate)}`}
+                  href={`/tenancies/${tenancy.id}`}
+                  key={tenancy.id}
+                  title={tenancy.tenantName}
+                />
+              ))
+            ) : (
+              <p className="text-sm text-slate-600">
+                No tenancy records are linked to this property.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
       <InventoryManager propertyId={property.id} />
-      <section className="mt-6">
+      <section id="related-issues" className="mt-6">
         <h2 className="mb-3 text-lg font-semibold text-slate-950">
           Related issues
         </h2>
-        <EmptyState
-          action={
-            <Link href="/issues">
-              <Button variant="outline">View issues</Button>
-            </Link>
-          }
-          description="Open the Issues workspace to review records associated with your properties."
-          icon={AlertCircle}
-          title="Review related issues"
-        />
+        {relatedLoading ? (
+          <p className="rounded-xl border bg-white p-4 text-sm text-slate-600">
+            Loading issues...
+          </p>
+        ) : issues.length ? (
+          <div className="grid gap-3">
+            {issues.map((issue) => (
+              <RelatedRecordLink
+                detail={`${issue.priority} priority · ${issue.status} · reported ${formatDate(issue.createdAt)}`}
+                href={`/issues/${issue.id}`}
+                key={issue.id}
+                title={issue.title}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            action={
+              <Link href="/issues">
+                <Button variant="outline">View all issues</Button>
+              </Link>
+            }
+            description="No issue records are linked to this property."
+            icon={AlertCircle}
+            title="No related issues"
+          />
+        )}
       </section>
-      <section className="mt-6">
+      <section id="related-disputes" className="mt-6">
         <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-slate-950">
           <Scale className="h-5 w-5 text-blue-600" aria-hidden="true" />
           Related disputes
         </h2>
-        <EmptyState
-          action={
-            <Link href="/disputes">
-              <Button variant="outline">View disputes</Button>
-            </Link>
-          }
-          description="Open the Disputes workspace to review cases associated with your properties."
-          icon={Scale}
-          title="Review related disputes"
-        />
+        {relatedError ? (
+          <p className="mb-3 text-sm text-rose-700">{relatedError}</p>
+        ) : null}
+        {relatedLoading ? (
+          <p className="rounded-xl border bg-white p-4 text-sm text-slate-600">
+            Loading disputes...
+          </p>
+        ) : disputes.length ? (
+          <div className="grid gap-3">
+            {disputes.map((dispute) => (
+              <RelatedRecordLink
+                detail={`${dispute.disputeReference} · ${dispute.status} · raised ${formatDate(dispute.createdAt)}`}
+                href={`/disputes/${dispute.id}`}
+                key={dispute.id}
+                title={dispute.title}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            action={
+              <Link href="/disputes">
+                <Button variant="outline">View all disputes</Button>
+              </Link>
+            }
+            description="No dispute records are linked to this property."
+            icon={Scale}
+            title="No related disputes"
+          />
+        )}
       </section>
     </>
+  );
+}
+
+function RelatedRecordLink({
+  detail,
+  href,
+  title,
+}: {
+  detail: string;
+  href: string;
+  title: string;
+}) {
+  return (
+    <Link
+      className="rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:bg-slate-50"
+      href={href}
+    >
+      <p className="font-semibold text-slate-950">{title}</p>
+      <p className="mt-1 text-sm capitalize text-slate-600">{detail}</p>
+    </Link>
   );
 }
 

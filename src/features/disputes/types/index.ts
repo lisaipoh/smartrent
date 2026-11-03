@@ -22,4 +22,12 @@ export type DisputeRecord = {
   raisedByName: string;
   createdAt: string;
   updatedAt: string;
+  activity?: DisputeTimelineEvent[];
+};
+
+export type DisputeTimelineEvent = {
+  id: string;
+  at: string;
+  label: string;
+  detail: string;
 };

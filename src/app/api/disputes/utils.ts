@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 
 import {
   DisputeModel,
+  EvidenceModel,
   IssueModel,
+  MessageModel,
   PropertyModel,
   TenancyModel,
   UserModel,
@@ -109,4 +111,71 @@ export async function serializeDispute(dispute: DisputeDocument) {
     createdAt: dispute.createdAt.toISOString(),
     updatedAt: dispute.updatedAt.toISOString(),
   };
+}
+
+export async function getDisputeTimeline(dispute: DisputeDocument) {
+  const [issue, evidence, messages] = await Promise.all([
+    IssueModel.findOne({ _id: dispute.issueId }),
+    EvidenceModel.find({
+      $or: [
+        { issueId: dispute.issueId },
+        { disputeId: dispute._id.toString() },
+      ],
+    }),
+    MessageModel.find({ issueId: dispute.issueId }),
+  ]);
+  const actorIds = [
+    dispute.raisedBy,
+    ...(dispute.activityHistory ?? []).map((entry) => entry.changedBy),
+  ];
+  const actors = await UserModel.find({ _id: { $in: actorIds } }).select(
+    "name",
+  );
+  const actorNames = new Map(
+    actors.map((actor) => [actor._id.toString(), actor.name]),
+  );
+  const events = [
+    ...(issue
+      ? [
+          {
+            id: `issue-${issue._id}`,
+            at: issue.createdAt.toISOString(),
+            label: "Issue reported",
+            detail: issue.title,
+          },
+        ]
+      : []),
+    {
+      id: `dispute-${dispute._id}`,
+      at: dispute.createdAt.toISOString(),
+      label: "Dispute raised",
+      detail: `Raised by ${actorNames.get(dispute.raisedBy) ?? "SmartRent user"}`,
+    },
+    ...evidence.map((item) => ({
+      id: `evidence-${item._id}`,
+      at: item.createdAt.toISOString(),
+      label: "Evidence uploaded",
+      detail: item.fileName,
+    })),
+    ...messages.map((message) => ({
+      id: `message-${message._id}`,
+      at: message.createdAt.toISOString(),
+      label: "Issue-linked message sent",
+      detail: message.subject,
+    })),
+    ...(dispute.activityHistory ?? []).map((entry, index) => ({
+      id: `dispute-activity-${dispute._id}-${index}`,
+      at: entry.changedAt.toISOString(),
+      label:
+        entry.type === "status_changed"
+          ? "Status changed"
+          : "Resolution notes updated",
+      detail:
+        entry.type === "status_changed"
+          ? `Changed to ${entry.status?.replaceAll("_", " ") ?? "unknown"} by ${actorNames.get(entry.changedBy) ?? "SmartRent user"}`
+          : `Updated by ${actorNames.get(entry.changedBy) ?? "SmartRent user"}`,
+    })),
+  ];
+
+  return events.sort((left, right) => left.at.localeCompare(right.at));
 }

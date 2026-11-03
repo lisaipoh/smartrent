@@ -18,7 +18,7 @@ import {
   validationErrorResponse,
 } from "./utils";
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user) return unauthenticatedResponse();
 
@@ -29,7 +29,7 @@ export async function GET() {
           $or: tenantMembershipConditions(session.user),
         }).select("_id")
       : [];
-  const query =
+  const roleQuery =
     session.user.role === "admin"
       ? {}
       : session.user.role === "tenant"
@@ -45,6 +45,8 @@ export async function GET() {
             ],
           }
         : { landlordId: session.user.id };
+  const propertyId = new URL(request.url).searchParams.get("propertyId");
+  const query = propertyId ? { $and: [roleQuery, { propertyId }] } : roleQuery;
   const disputes = await DisputeModel.find(query).sort({ createdAt: -1 });
 
   return NextResponse.json({

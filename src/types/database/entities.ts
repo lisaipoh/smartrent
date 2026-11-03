@@ -175,6 +175,12 @@ export interface Dispute extends BaseEntity {
   status: DisputeStatus;
   priority: IssuePriority;
   resolutionNotes?: string;
+  activityHistory?: Array<{
+    type: "status_changed" | "resolution_notes_updated";
+    status?: DisputeStatus;
+    changedAt: Date;
+    changedBy: string;
+  }>;
 }
 
 export interface Notification extends BaseEntity {
