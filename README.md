@@ -103,14 +103,6 @@ The script creates realistic demo data:
 - one dispute
 - three notifications
 
-## Demo Credentials
-
-| Role | Email | Password |
-| --- | --- | --- |
-| Landlord | `landlord@smartrent.demo` | `Password123!` |
-| Tenant | `tenant@smartrent.demo` | `Password123!` |
-| Admin | `admin@smartrent.demo` | `Password123!` |
-
 ## QA Evidence
 
 Use these files for final testing and dissertation Chapter 4 evidence:
