@@ -16,7 +16,7 @@ SmartRent is a smart landlord and tenant dispute documentation and property mana
 - Vitest and React Testing Library
 - Vercel deployment target
 
-## Core Features
+## Core Features and functionalities
 
 - Public marketing website with responsive pages for Home, Features, About, Contact, Privacy, Terms, and Security.
 - Credentials authentication with landlord, tenant, and admin roles.
